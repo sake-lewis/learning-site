@@ -13,8 +13,9 @@ Tout ce qu'il faut est dans ce dossier ; rien ne dépend de l'ancien compte.
    > Lis PASSATION.md, puis DECISIONS.md, DESIGN.md et docs/SPEC.md. Ne lance rien et ne modifie
    > rien avant de m'avoir résumé l'état du projet et proposé la prochaine étape.
 
-3. Pour utiliser l'application : double-cliquez sur `Timbre Studio.bat`, elle s'ouvre sur
-   http://127.0.0.1:5178.
+3. Pour utiliser l'application : double-cliquez sur le raccourci **Timbre Studio** du Bureau (ou
+   sur `Timbre Studio.bat`), elle s'ouvre sur http://127.0.0.1:5178. Le raccourci pointe vers ce
+   dossier : à recréer si le dossier est déplacé.
 
 Votre clé Gemini reste dans `.env`. Elle appartient à votre compte Google, pas à votre compte
 Claude : le changement de compte ne la touche pas. Ne la collez jamais dans une conversation.
