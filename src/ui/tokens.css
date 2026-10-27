@@ -1,0 +1,56 @@
+/* Design tokens — see DESIGN.md ("the console"). The app has one theme: dark (user decision, 2026-10-27). */
+:root {
+  --bg: #121110;
+  --panel: #171614;
+  --surface: #1c1a18;
+  --surface-2: #24221f;
+  --surface-3: #2d2a26;
+  --hairline: rgba(255, 240, 220, 0.08);
+  --hairline-strong: rgba(255, 240, 220, 0.14);
+  --text: #f2ede6;
+  --text-muted: #a39c92;
+  --text-faint: #8a8378;
+  --accent: #f2b544;
+  --accent-hover: #ffc35f;
+  --on-accent: #1a1408;
+  --accent-ink: #f5c46a;
+  --accent-soft: rgba(242, 181, 68, 0.13);
+  --accent-line: rgba(242, 181, 68, 0.45);
+  --ready: #4cd38a;
+  --danger: #ff5a4e;
+  --danger-soft: rgba(255, 90, 78, 0.12);
+  --warning: #ff8a3d;
+  --warning-soft: rgba(255, 138, 61, 0.12);
+  --wave: #3a3631;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-2: 0 12px 32px rgba(0, 0, 0, 0.45);
+  /* Native controls (select lists, scrollbars, checkboxes, date pickers) render dark too. */
+  color-scheme: dark;
+}
+
+:root {
+  --font-ui: 'Instrument Sans Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-data: 'JetBrains Mono Variable', 'Cascadia Mono', Consolas, monospace;
+
+  --text-xs: 0.75rem; /* 12 */
+  --text-sm: 0.8125rem; /* 13 */
+  --text-base: 0.90625rem; /* 14.5 */
+  --text-md: 1rem; /* 16 */
+  --text-lg: 1.1875rem; /* 19 */
+  --text-xl: 1.4375rem; /* 23 */
+  --text-2xl: 1.75rem; /* 28 */
+
+  --radius-sm: 8px;
+  --radius: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+  --sidebar-w: 248px;
+  --inspector-w: 368px;
+  --player-h: 84px;
+}
