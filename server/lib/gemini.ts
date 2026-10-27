@@ -1,10 +1,20 @@
 // The only module that talks to Google (spec 7.1). Uses the Interactions API shapes of spec section 2.
-// Every call makes exactly one attempt (retries belong to the client's queue, where they can see the
-// free-tier quota) and is bounded by LIMITS.upstreamTimeoutMs.
+// Every call sends at most one request (retries belong to the client's queue, where they can see the
+// free-tier quota) and is bounded by LIMITS.upstreamTimeoutMs. Only a connection that never opened,
+// so nothing reached Google, is tried a second time.
+import { setDefaultAutoSelectFamilyAttemptTimeout } from 'node:net';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { GoogleGenAI } from '@google/genai';
 import { encodeWavPcm16 } from '../../shared/wav.ts';
 import type { CreateVoiceBody, QuotaScope, TtsRequest, VoiceSummary } from '../../shared/schemas.ts';
 import { LIMITS, MODELS } from '../config.ts';
+
+// Applies to the SDK's fetch too (checked on this PC: 100 ms reproduces "fetch failed", 2 s connects).
+setDefaultAutoSelectFamilyAttemptTimeout(LIMITS.connectAttemptMs);
+
+// System codes of a connection that failed before any byte was sent. ECONNRESET is left out: the
+// request may already have reached Google.
+const CONNECT_FAILURES = new Set(['ETIMEDOUT', 'ECONNREFUSED', 'ENETUNREACH', 'EHOSTUNREACH', 'ENOTFOUND', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT']);
 
 export class UpstreamError extends Error {
   readonly status: number;
@@ -95,6 +105,30 @@ export function quotaInfo(body: GoogleErrorBody | undefined): { scope: QuotaScop
   return { scope, ...(Number.isFinite(retryAfterSec) ? { retryAfterSec } : {}) };
 }
 
+/**
+ * The system code under a network failure. The SDK wraps Node's fetch error, which wraps the socket
+ * error: APIConnectionError → ConnectionError → TypeError "fetch failed" → { code: "ETIMEDOUT" }.
+ */
+export function networkCode(error: unknown): string | undefined {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && typeof current === 'object' && current !== null; depth++) {
+    const code = (current as { code?: unknown }).code;
+    if (typeof code === 'string' && code) return code;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return undefined;
+}
+
+function isConnectionError(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'APIConnectionError' || error.name === 'ConnectionError');
+}
+
+/** True when the connection to Google never opened, so the request was not sent and costs no quota. */
+export function failedToConnect(error: unknown): boolean {
+  const code = networkCode(error);
+  return isConnectionError(error) && code !== undefined && CONNECT_FAILURES.has(code);
+}
+
 /** Maps any SDK or network failure to a stable code the client can explain; never leaks the key. */
 export function toUpstreamError(error: unknown): UpstreamError {
   if (error instanceof UpstreamError) return error;
@@ -104,6 +138,11 @@ export function toUpstreamError(error: unknown): UpstreamError {
   const name = error instanceof Error ? error.name : '';
   if (name.includes('Timeout')) return new UpstreamError(504, 'TIMEOUT', 'Google did not answer in time.', detail);
   if (name.includes('Abort')) return new UpstreamError(499, 'CANCELLED', 'Generation cancelled.');
+  if (isConnectionError(error)) {
+    // Google never answered: not "Google returned an error". The system code says why (timeout, DNS…).
+    const code = networkCode(error);
+    return new UpstreamError(502, 'UNREACHABLE', 'Google could not be reached from this PC.', code ? `${detail} (${code})` : detail);
+  }
   switch (statusOf(error)) {
     case 400:
       return new UpstreamError(400, 'BAD_REQUEST', 'Google rejected the request.', detail);
@@ -121,15 +160,28 @@ export function toUpstreamError(error: unknown): UpstreamError {
   }
 }
 
-/** Runs one SDK call with the request options and converts the deadline into TIMEOUT. */
-async function once<T>(signal: AbortSignal | undefined, call: (options: ReturnType<typeof requestOptions>['options']) => Promise<T>): Promise<T> {
-  const { deadline, options } = requestOptions(signal);
-  try {
-    return await call(options);
-  } catch (error) {
-    if (deadline.aborted && !signal?.aborted) throw new UpstreamError(504, 'TIMEOUT', 'Google did not answer in time.');
-    if (signal?.aborted) throw new UpstreamError(499, 'CANCELLED', 'Generation cancelled.');
-    throw toUpstreamError(error);
+/**
+ * Runs one SDK call with the request options and converts the deadline into TIMEOUT. A connection
+ * that never opened is tried once more after a short pause: no request reached Google, so no quota.
+ */
+export async function once<T>(signal: AbortSignal | undefined, call: (options: ReturnType<typeof requestOptions>['options']) => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    const { deadline, options } = requestOptions(signal);
+    try {
+      return await call(options);
+    } catch (error) {
+      if (deadline.aborted && !signal?.aborted) throw new UpstreamError(504, 'TIMEOUT', 'Google did not answer in time.');
+      if (signal?.aborted) throw new UpstreamError(499, 'CANCELLED', 'Generation cancelled.');
+      if (failedToConnect(error)) {
+        // Metadata only (spec S11): the system code, never the request.
+        console.warn(`Google unreachable (${networkCode(error)}), attempt ${attempt}`);
+        if (attempt === 1) {
+          await sleep(LIMITS.connectRetryMs);
+          continue;
+        }
+      }
+      throw toUpstreamError(error);
+    }
   }
 }
 

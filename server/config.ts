@@ -21,6 +21,11 @@ export const LIMITS = {
   cacheMaxBytes: 200 * 1024 * 1024,
   // An audiobook segment of ~3,500 characters is about 4 minutes of audio: allow Google time to render it.
   upstreamTimeoutMs: 300_000,
+  // Node gives each of Google's addresses 250 ms to connect. On this PC a TCP connection takes
+  // 140–250 ms, so a slow moment made every address fail ("fetch failed"): allow 2 s per address.
+  connectAttemptMs: 2000,
+  // A connection that never opened sent nothing to Google: it is retried once after this pause.
+  connectRetryMs: 1000,
 };
 
 export const ALLOWED_HOSTS = [`127.0.0.1:${PORT}`, `localhost:${PORT}`];

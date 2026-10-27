@@ -24,7 +24,7 @@ export const useRunner = create<RunnerState>(() => IDLE);
 const QUOTA_WAIT_MS = 65_000;
 const MAX_QUOTA_WAITS = 4;
 const MAX_ATTEMPTS = 3;
-const TRANSIENT = new Set(['TIMEOUT', 'UPSTREAM', 'NETWORK', 'NO_AUDIO']);
+const TRANSIENT = new Set(['TIMEOUT', 'UPSTREAM', 'UNREACHABLE', 'NETWORK', 'NO_AUDIO']);
 
 let controller: AbortController | null = null;
 
